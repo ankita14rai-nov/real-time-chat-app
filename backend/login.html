@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Chat App</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #e5ddd5;
+            margin: 0;
+        }
+
+        .login-container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .login-container h2 {
+            text-align: center;
+            color: #075e54;
+            margin-bottom: 20px;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: bold;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            outline: none;
+        }
+
+        .input-group input:focus {
+            border-color: #075e54;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #25d366;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            background-color: #1ebd5a;
+        }
+
+        #error-msg {
+            color: #d32f2f;
+            text-align: center;
+            margin-top: 15px;
+            font-size: 14px;
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="login-container">
+        <h2>Welcome to Chat</h2>
+        <form id="loginForm">
+            <div class="input-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" required placeholder="Enter your email">
+            </div>
+            <div class="input-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" required placeholder="Enter your password">
+            </div>
+            <button type="submit">Login</button>
+            <div id="error-msg">Invalid credentials. Please try again.</div>
+        </form>
+    </div>
+
+    <script>
+        document.getElementById("loginForm").addEventListener("submit", async function (e) {
+            e.preventDefault(); // Prevent page reload
+
+            const email = document.getElementById("email").value;
+            const password = document.getElementById("password").value;
+            const errorMsg = document.getElementById("error-msg");
+
+            errorMsg.style.display = "none"; // Hide error initially
+
+            // FastAPI OAuth2PasswordBearer usually expects form-urlencoded data
+            const formData = new URLSearchParams();
+            formData.append("username", email); // OAuth2 spec uses 'username' for the ID field
+            formData.append("password", password);
+
+            try {
+                const response = await fetch("http://127.0.0.1:8000/login", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded"
+                    },
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error("Login failed");
+                }
+
+                const data = await response.json();
+
+                // Save token to localStorage
+                localStorage.setItem("chat_token", data.access_token);
+
+                // Redirect to the chat interface
+                window.location.href = "chat_ui.html";
+
+            } catch (error) {
+                console.error("Login Error:", error);
+                errorMsg.style.display = "block";
+                errorMsg.innerText = "Login failed. Check your email and password.";
+            }
+        });
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>WebSocket Chat Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        input,
+        button {
+            padding: 5px;
+            margin-bottom: 10px;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        li {
+            margin-bottom: 10px;
+            padding: 10px;
+            background-color: #f1f1f1;
+            border-radius: 5px;
+        }
+
+        .action-btn {
+            margin-left: 10px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .delete-btn {
+            color: red;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h2>WebSocket Chat Test</h2>
+
+    <label>Your ID:</label>
+    <input id="userId" value="1"><br><br>
+
+    <label>Receiver ID:</label>
+    <input id="receiverId" value="2"><br><br>
+
+    <label>JWT Token:</label>
+    <input id="token" style="width:500px" placeholder="Paste your token here"><br><br>
+
+    <label>Message:</label>
+    <input id="message" placeholder="Type a message...">
+    <button onclick="sendMessage()">Send Message</button>
+    <br><br>
+
+    <label>Send File:</label>
+    <input type="file" id="fileInput">
+    <button onclick="uploadFile()">Upload File</button>
+
+    <button onclick="connect()" style="display:block; margin-top:20px; font-weight:bold;">1. Connect WebSocket</button>
+    <button onclick="loadChatHistory()" style="display:block;">2. Load Chat History</button>
+
+    <div id="typing" style="color: gray; font-style: italic; margin-top: 10px; height: 20px;"></div>
+    <ul id="messages"></ul>
+
+    <script>
+
+        let socket;
+
+        // =========================================
+        // 1. CONNECT WEBSOCKET
+        // =========================================
+        function connect() {
+            const userId = document.getElementById("userId").value;
+            const token = document.getElementById("token").value.trim();
+
+            if (!userId) return alert("Please enter User ID");
+            if (!token) return alert("Please enter your JWT token first.");
+
+            console.log("Connecting WebSocket...");
+
+            socket = new WebSocket(`ws://127.0.0.1:8000/ws?token=${encodeURIComponent(token)}`);
+
+            socket.onopen = function () {
+                console.log("✅ WebSocket Connected");
+                loadChatHistory();
+            };
+
+            socket.onmessage = function (event) {
+                const data = JSON.parse(event.data);
+                console.log("Received:", data);
+                const currentUserId = Number(document.getElementById("userId").value);
+
+                // -- DELETE MESSAGE --
+                if (data.type === "delete") {
+                    const msg = document.getElementById("msg-" + data.message_id);
+                    if (msg) msg.remove();
+                    return;
+                }
+
+                // -- EDIT MESSAGE --
+                if (data.type === "edit") {
+                    const msg = document.getElementById("msg-" + data.message_id);
+                    if (msg) {
+                        const messageText = msg.querySelector(".message-text");
+                        if (messageText) messageText.innerText = data.message;
+                    }
+                    return;
+                }
+
+                // -- TYPING INDICATOR --
+                if (data.type === "typing") {
+                    document.getElementById("typing").innerHTML = `✍️ User ${data.sender_id} is typing...`;
+                    setTimeout(() => { document.getElementById("typing").innerHTML = ""; }, 1500);
+                    return;
+                }
+
+                // -- MESSAGE RECEIVED --
+                if (data.type === "message") {
+                    const li = document.createElement("li");
+                    li.id = "msg-" + data.message_id;
+
+                    const isSender = data.sender_id === currentUserId;
+                    const actionButtons = isSender ? `
+                    <button class="action-btn" onclick="editMessage(${data.message_id})">Edit</button>
+                    <button class="action-btn delete-btn" onclick="deleteMessage(${data.message_id})">Delete</button>
+                ` : "";
+
+                    li.innerHTML = `
+                    <b>User ${data.sender_id}:</b> 
+                    <span class='message-text'>${data.message}</span> 
+                    <span class='status'>${isSender ? "✓" : ""}</span>
+                    ${actionButtons}
+                `;
+
+                    document.getElementById("messages").appendChild(li);
+
+                    if (!isSender) {
+                        socket.send(JSON.stringify({ type: "read", message_id: data.message_id }));
+                    }
+                    return;
+                }
+
+                // -- FILE RECEIVED --
+                if (data.type === "file") {
+                    const li = document.createElement("li");
+                    li.id = "msg-" + data.message_id;
+
+                    const isSender = data.sender_id === currentUserId;
+                    const actionButtons = isSender ? `<button class="action-btn delete-btn" onclick="deleteMessage(${data.message_id})">Delete</button>` : "";
+
+                    if (data.message_type === "image") {
+                        li.innerHTML = `<b>User ${data.sender_id}:</b><br>
+                                    <img src='http://127.0.0.1:8000/${data.file_path.replace(/\\/g, "/")}' width='200'><br>
+                                    <span class='status'>✓</span> ${actionButtons}`;
+                    } else {
+                        li.innerHTML = `<b>User ${data.sender_id}:</b> 
+                                    <a target='_blank' href='http://127.0.0.1:8000/${data.file_path.replace(/\\/g, "/")}'>${data.file_name}</a> 
+                                    <span class='status'>✓</span> ${actionButtons}`;
+                    }
+
+                    document.getElementById("messages").appendChild(li);
+                    return;
+                }
+
+                // -- MESSAGE STATUS UPDATE --
+                if (data.type === "status") {
+                    const li = document.getElementById("msg-" + data.message_id);
+                    if (!li) return;
+                    const status = li.querySelector(".status");
+                    if (!status) return;
+
+                    if (data.sender_id !== currentUserId) return;
+
+                    if (data.status === "sent") status.innerHTML = "✓";
+                    else if (data.status === "delivered") status.innerHTML = "✓✓";
+                    else if (data.status === "read") status.innerHTML = "✓✓ Read";
+                    return;
+                }
+            };
+        }
+
+        // =========================================
+        // 2. SEND TYPING EVENT
+        // =========================================
+        document.getElementById("message").addEventListener("input", function () {
+            if (!socket) return;
+            socket.send(JSON.stringify({
+                type: "typing",
+                receiver_id: Number(document.getElementById("receiverId").value)
+            }));
+        });
+
+        // =========================================
+        // 3. SEND TEXT MESSAGE
+        // =========================================
+        function sendMessage() {
+            if (!socket) return alert("Connect WebSocket first!");
+
+            const messageInput = document.getElementById("message");
+            if (!messageInput.value.trim()) return;
+
+            socket.send(JSON.stringify({
+                type: "message",
+                receiver_id: Number(document.getElementById("receiverId").value),
+                message: messageInput.value
+            }));
+
+            messageInput.value = "";
+        }
+
+        // =========================================
+        // 4. LOAD CHAT HISTORY VIA API
+        // =========================================
+        async function loadChatHistory() {
+            const friendId = document.getElementById("receiverId").value;
+            const token = document.getElementById("token").value.trim();
+            const currentUserId = Number(document.getElementById("userId").value);
+
+            if (!token) return alert("Please enter JWT token first.");
+
+            try {
+                const response = await fetch(`http://127.0.0.1:8000/messages/chat/${friendId}`, {
+                    method: "GET",
+                    headers: { "Authorization": "Bearer " + token }
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || `Server Error: ${response.status}`);
+                }
+
+                const messages = await response.json();
+                const messageList = document.getElementById("messages");
+                messageList.innerHTML = "";
+
+                messages.forEach(function (data) {
+                    const li = document.createElement("li");
+                    li.id = "msg-" + data.id;
+                    const isSender = data.sender_id === currentUserId;
+
+                    let actionButtons = "";
+                    if (isSender) {
+                        if (data.message_type === "text") {
+                            actionButtons += `<button class="action-btn" onclick="editMessage(${data.id})">Edit</button>`;
+                        }
+                        actionButtons += `<button class="action-btn delete-btn" onclick="deleteMessage(${data.id})">Delete</button>`;
+                    }
+
+                    let content = "";
+                    if (data.message_type === "text") {
+                        content = `<b>User ${data.sender_id}:</b> <span class="message-text">${data.message}</span>`;
+                    } else if (data.message_type === "image") {
+                        content = `<b>User ${data.sender_id}:</b><br><img src='http://127.0.0.1:8000/${data.file_path.replace(/\\/g, "/")}' width='200'>`;
+                    } else {
+                        content = `<b>User ${data.sender_id}:</b> <a target='_blank' href='http://127.0.0.1:8000/${data.file_path.replace(/\\/g, "/")}'>${data.file_name}</a>`;
+                    }
+
+                    li.innerHTML = `${content} <span class='status'>${getStatusSymbol(data.status)}</span> ${actionButtons}`;
+                    messageList.appendChild(li);
+                });
+            } catch (error) {
+                console.error("Chat History Error:", error);
+                alert("Failed to load history: " + error.message);
+            }
+        }
+
+        function getStatusSymbol(status) {
+            if (status === "sent") return "✓";
+            if (status === "delivered") return "✓✓";
+            if (status === "read") return "✓✓ Read";
+            return "";
+        }
+
+        // =========================================
+        // 5. DELETE MESSAGE API
+        // =========================================
+        async function deleteMessage(messageId) {
+            const token = document.getElementById("token").value.trim();
+            if (!token) return alert("Missing JWT token");
+
+            const confirmDelete = confirm("Are you sure you want to delete this message?");
+            if (!confirmDelete) return;
+
+            try {
+                const response = await fetch(`http://127.0.0.1:8000/messages/delete/${messageId}`, {
+                    method: "DELETE",
+                    headers: { "Authorization": "Bearer " + token }
+                });
+
+                if (!response.ok) throw new Error("Failed to delete message");
+                console.log(`Deleted message ${messageId}`);
+            } catch (error) {
+                console.error(error);
+                alert("Error deleting message: " + error.message);
+            }
+        }
+
+        // =========================================
+        // 6. EDIT MESSAGE API
+        // =========================================
+        async function editMessage(messageId) {
+            const token = document.getElementById("token").value.trim();
+            if (!token) return alert("Missing JWT token");
+
+            const newText = prompt("Enter new message text:");
+            if (!newText) return;
+
+            try {
+                const response = await fetch(`http://127.0.0.1:8000/messages/edit/${messageId}`, {
+                    method: "PUT",
+                    headers: {
+                        "Authorization": "Bearer " + token,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ message: newText })
+                });
+
+                if (!response.ok) throw new Error("Failed to edit message");
+                console.log(`Edited message ${messageId}`);
+            } catch (error) {
+                console.error(error);
+                alert("Error editing message: " + error.message);
+            }
+        }
+
+        // =========================================
+        // 7. UPLOAD FILE API (Fixed for [object Object] error)
+        // =========================================
+        async function uploadFile() {
+            const token = document.getElementById("token").value.trim();
+            const receiverId = document.getElementById("receiverId").value;
+            const fileInput = document.getElementById("fileInput");
+
+            if (!token) return alert("Missing JWT token");
+            if (!receiverId) return alert("Missing Receiver ID");
+            if (fileInput.files.length === 0) return alert("Please select a file first.");
+
+            const formData = new FormData();
+            formData.append("receiver_id", receiverId);
+            formData.append("file", fileInput.files[0]);
+
+            try {
+                const response = await fetch("http://127.0.0.1:8000/messages/upload", {
+                    method: "POST",
+                    headers: { "Authorization": "Bearer " + token },
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const err = await response.json();
+                    // Yeh naya part hai jo [object Object] ko fix karega
+                    const errorMessage = typeof err.detail === 'object'
+                        ? JSON.stringify(err.detail)
+                        : err.detail;
+                    throw new Error(errorMessage || "Upload failed");
+                }
+
+                console.log("File uploaded successfully");
+                fileInput.value = "";
+                loadChatHistory();
+
+            } catch (error) {
+                console.error("Upload Error:", error);
+                alert("Error uploading file: " + error.message);
+            }
+        }
+
+    </script>
+</body>
+
+</html>

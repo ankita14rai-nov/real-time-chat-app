@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Chat App</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            display: flex;
+            height: 100vh;
+            background-color: #e5ddd5;
+        }
+
+        /* Sidebar (Left) */
+        .sidebar {
+            width: 320px;
+            background-color: #ffffff;
+            border-right: 1px solid #ddd;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            background-color: #075e54;
+            color: white;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 5px;
+        }
+
+        .icon-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid white;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .icon-btn:hover {
+            background: rgba(255, 255, 255, 0.4);
+        }
+
+        .logout-btn {
+            background: none;
+            border: 1px solid white;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .logout-btn:hover {
+            background: #d32f2f;
+            border-color: #d32f2f;
+        }
+
+        /* Friends List */
+        .friends-list {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .friend-item {
+            padding: 15px 20px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            transition: background 0.2s;
+        }
+
+        .friend-item:hover {
+            background-color: #f5f5f5;
+        }
+
+        .friend-item.active {
+            background-color: #ebebeb;
+        }
+
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #075e54;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.2rem;
+            flex-shrink: 0;
+        }
+
+        .friend-info {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .friend-name {
+            font-weight: bold;
+            color: #333;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .friend-email {
+            font-size: 0.8rem;
+            color: #888;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .empty-state {
+            padding: 20px;
+            text-align: center;
+            color: #888;
+            font-size: 0.9rem;
+        }
+
+        /* Chat Window (Right) */
+        .chat-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png');
+        }
+
+        .chat-header {
+            padding: 20px;
+            background-color: #ededed;
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        /* Message Bubbles */
+        .message {
+            max-width: 60%;
+            padding: 10px 15px;
+            border-radius: 10px;
+            position: relative;
+            word-wrap: break-word;
+        }
+
+        .message.received {
+            background-color: #ffffff;
+            align-self: flex-start;
+            border-top-left-radius: 0;
+        }
+
+        .message.sent {
+            background-color: #dcf8c6;
+            align-self: flex-end;
+            border-top-right-radius: 0;
+        }
+
+        .sender-name {
+            font-size: 0.75rem;
+            font-weight: bold;
+            color: #075e54;
+            margin-bottom: 3px;
+            display: block;
+        }
+
+        .message-meta {
+            font-size: 0.75rem;
+            color: #888;
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 5px;
+            align-items: center;
+        }
+
+        /* Actions */
+        .message-actions {
+            display: none;
+            gap: 10px;
+            margin-top: 5px;
+            border-top: 1px solid rgba(0, 0, 0, 0.05);
+            padding-top: 5px;
+        }
+
+        .message.sent:hover .message-actions {
+            display: flex;
+        }
+
+        .action-btn {
+            background: none;
+            border: none;
+            font-size: 0.75rem;
+            cursor: pointer;
+            color: #075e54;
+            font-weight: bold;
+        }
+
+        .action-btn.delete {
+            color: #d32f2f;
+        }
+
+        /* Input Area */
+        .input-area {
+            padding: 15px;
+            background-color: #f0f0f0;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .input-area input[type="text"] {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 20px;
+            outline: none;
+        }
+
+        .input-area input[type="text"]:disabled {
+            background-color: #e0e0e0;
+            cursor: not-allowed;
+        }
+
+        .input-area button {
+            padding: 10px 20px;
+            background-color: #075e54;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .input-area button:disabled {
+            background-color: #888;
+            cursor: not-allowed;
+        }
+
+        .file-upload-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+        }
+
+        .file-upload-wrapper input[type="file"] {
+            font-size: 100px;
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .file-upload-wrapper input[type="file"]:disabled {
+            cursor: not-allowed;
+        }
+
+        .file-upload-btn {
+            padding: 10px 15px;
+            background-color: #ece5dd;
+            border: 1px solid #ccc;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+            color: #555;
+        }
+
+        /* Friend Modal (Popup) */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: 10% auto;
+            padding: 25px;
+            border-radius: 10px;
+            width: 400px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            line-height: 1;
+        }
+
+        .close:hover {
+            color: black;
+        }
+
+        .modal h3 {
+            color: #075e54;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #ece5dd;
+            padding-bottom: 5px;
+        }
+
+        .add-friend-form {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 25px;
+        }
+
+        .add-friend-form input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            outline: none;
+        }
+
+        .add-friend-form button {
+            padding: 10px 15px;
+            background-color: #25d366;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .request-list {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .request-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border: 1px solid #eee;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            background: #f9f9f9;
+        }
+
+        .request-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .request-actions button {
+            padding: 5px 10px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .btn-accept {
+            background-color: #25d366;
+            margin-right: 5px;
+        }
+
+        .btn-reject {
+            background-color: #d32f2f;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <span id="myProfileName">Loading...</span>
+            <div class="header-actions">
+                <button class="icon-btn" onclick="openFriendModal()">➕ Add Friend</button>
+                <button class="logout-btn" onclick="logout()">Logout</button>
+            </div>
+        </div>
+        <div class="friends-list" id="friendsList">
+            <div class="empty-state">Loading friends...</div>
+        </div>
+    </div>
+
+    <!-- Main Chat Area -->
+    <div class="chat-area">
+        <div class="chat-header">
+            <h3 id="chatTitle">Select a friend to start chatting</h3>
+            <div id="typing" style="font-size: 0.9rem; color: #075e54; font-style: italic;"></div>
+        </div>
+
+        <div class="chat-messages" id="messages">
+            <!-- Messages will render here -->
+        </div>
+
+        <div class="input-area">
+            <div class="file-upload-wrapper">
+                <button class="file-upload-btn" id="attachBtn" disabled>📎 Attach</button>
+                <input type="file" id="fileInput" onchange="uploadFile()" disabled>
+            </div>
+            <input type="text" id="message" placeholder="Type a message..." disabled>
+            <button id="sendBtn" onclick="sendMessage()" disabled>Send</button>
+        </div>
+    </div>
+
+    <!-- Friend Management Modal -->
+    <div id="friendModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeFriendModal()">&times;</span>
+
+            <h3>Add a New Friend</h3>
+            <div class="add-friend-form">
+                <input type="email" id="friendEmailInput" placeholder="Enter friend's email">
+                <button onclick="sendFriendRequest()">Send Request</button>
+            </div>
+
+            <h3>Pending Friend Requests</h3>
+            <div class="request-list" id="pendingRequestsList">
+                <div class="empty-state" style="padding: 10px;">Loading requests...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let socket;
+        let jwtToken = localStorage.getItem("chat_token");
+        let currentUserId = null;
+        let currentReceiverId = null;
+        let currentReceiverName = "";
+
+        // =========================================
+        // INITIALIZATION & AUTHENTICATION
+        // =========================================
+        window.onload = async function () {
+            if (!jwtToken) {
+                window.location.href = "login.html";
+                return;
+            }
+            try {
+                // Fetch Profile
+                const profileResponse = await fetch("http://127.0.0.1:8000/profile", {
+                    headers: { "Authorization": "Bearer " + jwtToken }
+                });
+                if (!profileResponse.ok) throw new Error("Session expired");
+                const profile = await profileResponse.json();
+                currentUserId = profile.id;
+                document.getElementById("myProfileName").innerText = profile.username;
+
+                // Fetch Friends
+                await loadFriendsList();
+
+                // Connect Global WebSocket
+                connectWebSocket();
+            } catch (error) {
+                console.error(error);
+                alert("Authentication failed. Please log in again.");
+                logout();
+            }
+        };
+
+        function logout() {
+            localStorage.removeItem("chat_token");
+            window.location.href = "login.html";
+        }
+
+        // =========================================
+        // FRIENDS LOGIC (SIDEBAR)
+        // =========================================
+        async function loadFriendsList() {
+            try {
+                const friendsResponse = await fetch("http://127.0.0.1:8000/friends/list", {
+                    headers: { "Authorization": "Bearer " + jwtToken }
+                });
+                const friends = await friendsResponse.json();
+
+                const friendsList = document.getElementById("friendsList");
+                friendsList.innerHTML = "";
+
+                if (friends.length === 0) {
+                    friendsList.innerHTML = '<div class="empty-state">No friends yet. Click "Add Friend" to start!</div>';
+                    return;
+                }
+
+                friends.forEach(friend => {
+                    const div = document.createElement("div");
+                    div.className = "friend-item";
+                    div.id = `friend-${friend.id}`;
+                    div.onclick = () => selectFriend(friend.id, friend.username);
+
+                    const initial = friend.username.charAt(0).toUpperCase();
+
+                    div.innerHTML = `
+                    <div class="avatar">${initial}</div>
+                    <div class="friend-info">
+                        <span class="friend-name">${friend.username}</span>
+                        <span class="friend-email">${friend.email}</span>
+                    </div>
+                `;
+                    friendsList.appendChild(div);
+                });
+
+                // Keep the current friend highlighted if we just refreshed the list
+                if (currentReceiverId) {
+                    const activeFriend = document.getElementById(`friend-${currentReceiverId}`);
+                    if (activeFriend) activeFriend.classList.add('active');
+                }
+            } catch (error) {
+                console.error("Failed to load friends", error);
+            }
+        }
+
+        function selectFriend(id, username) {
+            currentReceiverId = id;
+            currentReceiverName = username;
+
+            // Highlights
+            document.querySelectorAll('.friend-item').forEach(el => el.classList.remove('active'));
+            document.getElementById(`friend-${id}`).classList.add('active');
+
+            // Setup Chat Area
+            document.getElementById("chatTitle").innerText = `Chatting with ${username}`;
+            document.getElementById("message").disabled = false;
+            document.getElementById("fileInput").disabled = false;
+            document.getElementById("sendBtn").disabled = false;
+            document.getElementById("attachBtn").disabled = false;
+
+            loadChatHistory();
+        }
+
+        // =========================================
+        // FRIEND REQUEST MODAL LOGIC
+        // =========================================
+        function openFriendModal() {
+            document.getElementById('friendModal').style.display = 'block';
+            loadPendingRequests();
+        }
+
+        function closeFriendModal() {
+            document.getElementById('friendModal').style.display = 'none';
+            document.getElementById('friendEmailInput').value = "";
+        }
+
+        async function sendFriendRequest() {
+            const email = document.getElementById("friendEmailInput").value.trim();
+            if (!email) return alert("Please enter an email address.");
+
+            try {
+                const res = await fetch("http://127.0.0.1:8000/friends/request", {
+                    method: "POST",
+                    headers: {
+                        "Authorization": "Bearer " + jwtToken,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ receiver_email: email })
+                });
+
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.detail || "Failed to send request");
+                }
+
+                alert("Friend request sent successfully!");
+                document.getElementById("friendEmailInput").value = "";
+            } catch (e) {
+                alert(e.message);
+            }
+        }
+
+        async function loadPendingRequests() {
+            try {
+                const res = await fetch("http://127.0.0.1:8000/friends/requests", {
+                    headers: { "Authorization": "Bearer " + jwtToken }
+                });
+                const requests = await res.json();
+
+                const list = document.getElementById("pendingRequestsList");
+                list.innerHTML = "";
+
+                if (requests.length === 0) {
+                    list.innerHTML = '<div class="empty-state" style="padding:10px;">No pending requests.</div>';
+                    return;
+                }
+
+                requests.forEach(req => {
+                    list.innerHTML += `
+                    <div class="request-item">
+                        <div class="request-info">
+                            <strong>${req.sender_username}</strong>
+                            <span style="font-size:12px; color:#888;">${req.sender_email}</span>
+                        </div>
+                        <div class="request-actions">
+                            <button class="btn-accept" onclick="acceptRequest(${req.request_id})">Accept</button>
+                            <button class="btn-reject" onclick="rejectRequest(${req.request_id})">Reject</button>
+                        </div>
+                    </div>
+                `;
+                });
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function acceptRequest(id) {
+            try {
+                await fetch(`http://127.0.0.1:8000/friends/accept/${id}`, {
+                    method: "PUT",
+                    headers: { "Authorization": "Bearer " + jwtToken }
+                });
+                loadPendingRequests();
+                loadFriendsList(); // Refresh sidebar to show new friend
+            } catch (e) { console.error(e); }
+        }
+
+        async function rejectRequest(id) {
+            try {
+                if (!confirm("Reject this friend request?")) return;
+                await fetch(`http://127.0.0.1:8000/friends/reject/${id}`, {
+                    method: "DELETE",
+                    headers: { "Authorization": "Bearer " + jwtToken }
+                });
+                loadPendingRequests();
+            } catch (e) { console.error(e); }
+        }
+
+        // =========================================
+        // WEBSOCKET LOGIC
+        // =========================================
+        function connectWebSocket() {
+            socket = new WebSocket(`ws://127.0.0.1:8000/ws?token=${encodeURIComponent(jwtToken)}`);
+
+            socket.onmessage = function (event) {
+                const data = JSON.parse(event.data);
+
+                if (data.type === "delete") {
+                    const msg = document.getElementById("msg-" + data.message_id);
+                    if (msg) msg.remove();
+                    return;
+                }
+
+                if (data.type === "edit") {
+                    const msg = document.getElementById("msg-" + data.message_id);
+                    if (msg) {
+                        const textNode = msg.querySelector(".text-content");
+                        if (textNode) textNode.innerText = data.message;
+                    }
+                    return;
+                }
+
+                if (data.type === "typing" && data.sender_id === currentReceiverId) {
+                    const typingDiv = document.getElementById("typing");
+                    typingDiv.innerText = `${currentReceiverName} is typing...`;
+                    setTimeout(() => { typingDiv.innerText = ""; }, 1500);
+                    return;
+                }
+
+                if ((data.type === "message" || data.type === "file") &&
+                    (data.sender_id === currentReceiverId || data.sender_id === currentUserId)) {
+
+                    renderMessage(data);
+
+                    if (data.sender_id !== currentUserId) {
+                        socket.send(JSON.stringify({ type: "read", message_id: data.message_id || data.id }));
+                    }
+                    return;
+                }
+
+                if (data.type === "status") {
+                    const statusSpan = document.getElementById("status-" + data.message_id);
+                    if (statusSpan && data.sender_id === currentUserId) {
+                        statusSpan.innerText = data.status === "read" ? "✓✓ Read" : (data.status === "delivered" ? "✓✓" : "✓");
+                    }
+                }
+            };
+        }
+
+        // =========================================
+        // CHAT & MESSAGE LOGIC
+        // =========================================
+        async function loadChatHistory() {
+            if (!currentReceiverId) return;
+            try {
+                const response = await fetch(`http://127.0.0.1:8000/messages/chat/${currentReceiverId}`, {
+                    headers: { "Authorization": "Bearer " + jwtToken }
+                });
+                if (!response.ok) throw new Error("Failed to load history");
+
+                const messages = await response.json();
+                document.getElementById("messages").innerHTML = "";
+                messages.forEach(msg => renderMessage(msg));
+                scrollToBottom();
+            } catch (error) { alert("Failed to load chat history."); }
+        }
+
+        function renderMessage(data) {
+            const isSender = data.sender_id === currentUserId;
+            const msgId = data.message_id || data.id;
+
+            const div = document.createElement("div");
+            div.className = `message ${isSender ? "sent" : "received"}`;
+            div.id = `msg-${msgId}`;
+
+            const senderDisplayName = isSender ? "Me" : currentReceiverName;
+
+            let contentHtml = "";
+            if (data.message_type === "text") {
+                contentHtml = `<span class="text-content">${data.message}</span>`;
+            } else if (data.message_type === "image") {
+                contentHtml = `<img src="http://127.0.0.1:8000/${data.file_path}" style="max-width: 100%; border-radius: 5px; margin-top:5px;">`;
+            } else {
+                contentHtml = `<br><a href="http://127.0.0.1:8000/${data.file_path}" target="_blank" style="color: #075e54; font-weight: bold; text-decoration:none;">📄 ${data.file_name}</a>`;
+            }
+
+            const actionHtml = isSender ? `
+            <div class="message-actions">
+                ${data.message_type === "text" ? `<button class="action-btn" onclick="editMessage(${msgId})">Edit</button>` : ""}
+                <button class="action-btn delete" onclick="deleteMessage(${msgId})">Delete</button>
+            </div>
+        ` : "";
+
+            let statusText = isSender ? (data.status === "read" ? "✓✓ Read" : (data.status === "delivered" ? "✓✓" : "✓")) : "";
+
+            div.innerHTML = `
+            <span class="sender-name">${senderDisplayName}</span>
+            ${contentHtml}
+            <div class="message-meta">
+                <span id="status-${msgId}" style="color: ${data.status === 'read' ? '#4fc3f7' : '#888'}; font-weight:bold;">${statusText}</span>
+            </div>
+            ${actionHtml}
+        `;
+
+            document.getElementById("messages").appendChild(div);
+            scrollToBottom();
+        }
+
+        document.getElementById("message").addEventListener("input", () => {
+            if (socket && currentReceiverId) {
+                socket.send(JSON.stringify({ type: "typing", receiver_id: currentReceiverId }));
+            }
+        });
+
+        document.getElementById("message").addEventListener("keypress", function (e) {
+            if (e.key === "Enter") sendMessage();
+        });
+
+        function sendMessage() {
+            const msgInput = document.getElementById("message");
+            if (!socket || !msgInput.value.trim() || !currentReceiverId) return;
+
+            socket.send(JSON.stringify({
+                type: "message",
+                receiver_id: currentReceiverId,
+                message: msgInput.value
+            }));
+            msgInput.value = "";
+        }
+
+        async function uploadFile() {
+            const fileInput = document.getElementById("fileInput");
+            if (fileInput.files.length === 0 || !currentReceiverId) return;
+
+            const formData = new FormData();
+            formData.append("receiver_id", currentReceiverId);
+            formData.append("file", fileInput.files[0]);
+
+            try {
+                const response = await fetch("http://127.0.0.1:8000/messages/upload", {
+                    method: "POST",
+                    headers: { "Authorization": "Bearer " + jwtToken },
+                    body: formData
+                });
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(typeof err.detail === 'object' ? JSON.stringify(err.detail) : err.detail);
+                }
+                fileInput.value = "";
+                loadChatHistory();
+            } catch (error) { alert("Upload Error: " + error.message); }
+        }
+
+        async function editMessage(id) {
+            const newText = prompt("Edit message:");
+            if (!newText) return;
+            await fetch(`http://127.0.0.1:8000/messages/edit/${id}`, {
+                method: "PUT",
+                headers: { "Authorization": "Bearer " + jwtToken, "Content-Type": "application/json" },
+                body: JSON.stringify({ message: newText })
+            });
+        }
+
+        async function deleteMessage(id) {
+            if (!confirm("Delete message?")) return;
+            await fetch(`http://127.0.0.1:8000/messages/delete/${id}`, {
+                method: "DELETE",
+                headers: { "Authorization": "Bearer " + jwtToken }
+            });
+        }
+
+        function scrollToBottom() {
+            const container = document.getElementById("messages");
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // Close modal if clicked outside
+        window.onclick = function (event) {
+            const modal = document.getElementById('friendModal');
+            if (event.target == modal) closeFriendModal();
+        }
+    </script>
+</body>
+
+</html>
