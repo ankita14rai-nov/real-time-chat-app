@@ -18,18 +18,33 @@ export default function Chat() {
 
     const socketRef = useRef(null);
     const messagesEndRef = useRef(null);
+    const activeFriendRef = useRef(null); // NEW: Track active friend for WebSocket
     const jwtToken = localStorage.getItem("chat_token");
 
-    // Helper function to format timestamps (Step 1)
-const formatTime = (dateString) => {
+    // NEW: Keep ref updated so WebSocket always knows who we are chatting with
+    useEffect(() => {
+        activeFriendRef.current = activeFriend;
+    }, [activeFriend]);
+
+    const formatTime = (dateString) => {
         if (!dateString) return "";
-        // Ensure backend time is treated as UTC for proper conversion
         const safeDate = dateString.endsWith('Z') ? dateString : dateString + 'Z';
         const date = new Date(safeDate);
         return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     };
 
-    // Initialize & Fetch Profile/Friends
+    const fetchFriends = async () => {
+        try {
+            const res = await fetch("https://chat-app-backend-axgl.onrender.com/friends/list", {
+                headers: { "Authorization": `Bearer ${jwtToken}` }
+            });
+            const data = await res.json();
+            setFriends(data);
+        } catch (err) {
+            console.error("Failed to load friends", err);
+        }
+    };
+
     useEffect(() => {
         if (!jwtToken) {
             navigate('/login');
@@ -55,22 +70,16 @@ const formatTime = (dateString) => {
 
         initializeData();
 
+        // NEW: Silently refresh friends list every 5 seconds to catch accepted friend requests instantly
+        const friendInterval = setInterval(() => {
+            fetchFriends();
+        }, 5000);
+
         return () => {
+            clearInterval(friendInterval);
             if (socketRef.current) socketRef.current.close();
         };
     }, []);
-
-    const fetchFriends = async () => {
-        try {
-            const res = await fetch("https://chat-app-backend-axgl.onrender.com/friends/list", {
-                headers: { "Authorization": `Bearer ${jwtToken}` }
-            });
-            const data = await res.json();
-            setFriends(data);
-        } catch (err) {
-            console.error("Failed to load friends", err);
-        }
-    };
 
     const connectWebSocket = (userId) => {
         const ws = new WebSocket(`wss://chat-app-backend-axgl.onrender.com/ws?token=${encodeURIComponent(jwtToken)}`);
@@ -98,17 +107,28 @@ const formatTime = (dateString) => {
             }
 
             if (data.type === "message" || data.type === "file") {
-                // Attach a fallback timestamp immediately so it shows up before refreshing
-                const newMsg = { ...data, created_at: data.created_at || new Date().toISOString() };
-                setMessages(prev => [...prev, newMsg]);
+                const currentActive = activeFriendRef.current;
                 
-                if (data.sender_id !== userId) {
-                    ws.send(JSON.stringify({ type: "read", message_id: data.message_id || data.id }));
+                // NEW: Only show the message if it belongs to the currently open chat
+                if (currentActive && (data.sender_id === currentActive.id || data.receiver_id === currentActive.id)) {
+                    const newMsg = { ...data, created_at: data.created_at || new Date().toISOString() };
+                    
+                    setMessages(prev => {
+                        // Prevent duplicates if server echoes our own message back
+                        if (prev.some(m => (m.message_id || m.id) === (newMsg.message_id || newMsg.id))) return prev;
+                        return [...prev, newMsg];
+                    });
+                    
+                    if (data.sender_id !== userId) {
+                        ws.send(JSON.stringify({ type: "read", message_id: data.message_id || data.id }));
+                    }
                 }
+                
+                // Fetch friends to update sidebar (like moving the person to top or showing unread badge)
+                fetchFriends();
                 return;
             }
 
-            // Step 2: Fix status matching (using == instead of ===)
             if (data.type === "status") {
                 setMessages(prev => prev.map(msg => 
                     (msg.message_id || msg.id) == data.message_id ? { ...msg, status: data.status } : msg
@@ -123,7 +143,7 @@ const formatTime = (dateString) => {
         navigate('/login');
     };
 
-const selectFriend = async (friend) => {
+    const selectFriend = async (friend) => {
         setActiveFriend(friend);
         try {
             const res = await fetch(`https://chat-app-backend-axgl.onrender.com/messages/chat/${friend.id}`, {
@@ -133,7 +153,6 @@ const selectFriend = async (friend) => {
             setMessages(data);
             scrollToBottom();
 
-            // NEW: Tell the server we have read these historical messages
             data.forEach(msg => {
                 if (msg.sender_id === friend.id && msg.status !== 'read' && socketRef.current) {
                     socketRef.current.send(JSON.stringify({ 
@@ -142,7 +161,6 @@ const selectFriend = async (friend) => {
                     }));
                 }
             });
-
         } catch (err) {
             console.error("Failed to load history", err);
         }
@@ -152,12 +170,25 @@ const selectFriend = async (friend) => {
         e?.preventDefault();
         if (!messageInput.trim() || !activeFriend || !socketRef.current) return;
 
+        // NEW: Instantly draw the message on my own screen (Optimistic UI)
+        const tempMessage = {
+            message_id: Date.now(), // Temporary ID until page refreshes next time
+            sender_id: currentUser.id,
+            receiver_id: activeFriend.id,
+            message: messageInput,
+            message_type: "text",
+            created_at: new Date().toISOString(),
+            status: "sent"
+        };
+        setMessages(prev => [...prev, tempMessage]);
+
         socketRef.current.send(JSON.stringify({ 
             type: "message", 
             receiver_id: activeFriend.id, 
             message: messageInput 
         }));
         setMessageInput("");
+        scrollToBottom();
     };
 
     const handleTyping = (e) => {
@@ -293,9 +324,8 @@ const selectFriend = async (friend) => {
                     <div className="typing-indicator">{activeFriend && typingText}</div>
                 </div>
                 
-<div className="chat-messages">
+                <div className="chat-messages">
                     {messages.map((msg, index) => {
-                        // FIX: Ensure both IDs are compared as strings
                         const isSender = String(msg.sender_id) === String(currentUser.id);
                         const msgId = msg.message_id || msg.id;
                         
@@ -312,7 +342,6 @@ const selectFriend = async (friend) => {
                                         {formatTime(msg.created_at || msg.timestamp)}
                                     </span>
                                     
-                                    {/* EXACT WHATSAPP TICK LOGIC */}
                                     {isSender && (
                                         <span style={{
                                             color: msg.status === 'read' ? '#34B7F1' : '#999', 
