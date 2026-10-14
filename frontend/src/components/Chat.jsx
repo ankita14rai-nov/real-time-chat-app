@@ -38,7 +38,7 @@ const formatTime = (dateString) => {
 
         const initializeData = async () => {
             try {
-                const profileRes = await fetch("http://127.0.0.1:8000/profile", {
+                const profileRes = await fetch("https://chat-app-backend-axgl.onrender.com/profile", {
                     headers: { "Authorization": `Bearer ${jwtToken}` }
                 });
                 if (!profileRes.ok) throw new Error("Session expired");
@@ -62,7 +62,7 @@ const formatTime = (dateString) => {
 
     const fetchFriends = async () => {
         try {
-            const res = await fetch("http://127.0.0.1:8000/friends/list", {
+            const res = await fetch("https://chat-app-backend-axgl.onrender.com/friends/list", {
                 headers: { "Authorization": `Bearer ${jwtToken}` }
             });
             const data = await res.json();
@@ -73,7 +73,7 @@ const formatTime = (dateString) => {
     };
 
     const connectWebSocket = (userId) => {
-        const ws = new WebSocket(`ws://127.0.0.1:8000/ws?token=${encodeURIComponent(jwtToken)}`);
+        const ws = new WebSocket(`wss://chat-app-backend-axgl.onrender.com/ws?token=${encodeURIComponent(jwtToken)}`);
         socketRef.current = ws;
 
         ws.onmessage = (event) => {
@@ -126,7 +126,7 @@ const formatTime = (dateString) => {
 const selectFriend = async (friend) => {
         setActiveFriend(friend);
         try {
-            const res = await fetch(`http://127.0.0.1:8000/messages/chat/${friend.id}`, {
+            const res = await fetch(`https://chat-app-backend-axgl.onrender.com/messages/chat/${friend.id}`, {
                 headers: { "Authorization": `Bearer ${jwtToken}` }
             });
             const data = await res.json();
@@ -176,7 +176,7 @@ const selectFriend = async (friend) => {
         formData.append("file", file);
         
         try {
-            await fetch("http://127.0.0.1:8000/messages/upload", {
+            await fetch("https://chat-app-backend-axgl.onrender.com/messages/upload", {
                 method: "POST",
                 headers: { "Authorization": `Bearer ${jwtToken}` },
                 body: formData
@@ -190,7 +190,7 @@ const selectFriend = async (friend) => {
 
     const deleteMessage = async (id) => {
         if (!window.confirm("Delete message?")) return;
-        await fetch(`http://127.0.0.1:8000/messages/delete/${id}`, {
+        await fetch(`https://chat-app-backend-axgl.onrender.com/messages/delete/${id}`, {
             method: "DELETE",
             headers: { "Authorization": `Bearer ${jwtToken}` }
         });
@@ -199,7 +199,7 @@ const selectFriend = async (friend) => {
     const editMessage = async (id) => {
         const newText = window.prompt("Edit message:");
         if (!newText) return;
-        await fetch(`http://127.0.0.1:8000/messages/edit/${id}`, {
+        await fetch(`https://chat-app-backend-axgl.onrender.com/messages/edit/${id}`, {
             method: "PUT",
             headers: { "Authorization": `Bearer ${jwtToken}`, "Content-Type": "application/json" },
             body: JSON.stringify({ message: newText })
@@ -217,7 +217,7 @@ const selectFriend = async (friend) => {
     const openModal = async () => {
         setShowModal(true);
         try {
-            const res = await fetch("http://127.0.0.1:8000/friends/requests", {
+            const res = await fetch("https://chat-app-backend-axgl.onrender.com/friends/requests", {
                 headers: { "Authorization": `Bearer ${jwtToken}` }
             });
             const data = await res.json();
@@ -228,7 +228,7 @@ const selectFriend = async (friend) => {
     const sendFriendRequest = async () => {
         if (!friendEmail.trim()) return;
         try {
-            const res = await fetch("http://127.0.0.1:8000/friends/request", {
+            const res = await fetch("https://chat-app-backend-axgl.onrender.com/friends/request", {
                 method: "POST",
                 headers: { "Authorization": `Bearer ${jwtToken}`, "Content-Type": "application/json" },
                 body: JSON.stringify({ receiver_email: friendEmail })
@@ -245,7 +245,7 @@ const selectFriend = async (friend) => {
 
     const respondToRequest = async (id, action) => {
         try {
-            await fetch(`http://127.0.0.1:8000/friends/${action}/${id}`, {
+            await fetch(`https://chat-app-backend-axgl.onrender.com/friends/${action}/${id}`, {
                 method: action === 'accept' ? 'PUT' : 'DELETE',
                 headers: { "Authorization": `Bearer ${jwtToken}` }
             });
@@ -304,8 +304,8 @@ const selectFriend = async (friend) => {
                                 <span className="sender-name">{isSender ? 'Me' : activeFriend?.username}</span>
                                 
                                 {msg.message_type === "text" && <span className="text-content">{msg.message}</span>}
-                                {msg.message_type === "image" && <img src={`http://127.0.0.1:8000/${msg.file_path}`} alt="upload" className="msg-image" />}
-                                {msg.message_type === "file" && <a href={`http://127.0.0.1:8000/${msg.file_path}`} target="_blank" rel="noreferrer" className="msg-file">📄 {msg.file_name}</a>}
+                                {msg.message_type === "image" && <img src={`https://chat-app-backend-axgl.onrender.com/${msg.file_path}`} alt="upload" className="msg-image" />}
+                                {msg.message_type === "file" && <a href={`https://chat-app-backend-axgl.onrender.com/${msg.file_path}`} target="_blank" rel="noreferrer" className="msg-file">📄 {msg.file_name}</a>}
                                 
                                 <div className="message-meta" style={{ display: 'flex', alignItems: 'center', gap: '5px', justifyContent: 'flex-end', marginTop: '5px' }}>
                                     <span style={{ fontSize: '10px', color: '#999' }}>

@@ -1,4 +1,4 @@
-const API_URL = "http://127.0.0.1:8000";
+const API_URL = "https://chat-app-backend-axgl.onrender.com";
 
 export async function getUsers() {
     const token = localStorage.getItem("access_token");

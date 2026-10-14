@@ -477,7 +477,7 @@
             }
             try {
                 // Fetch Profile
-                const profileResponse = await fetch("http://127.0.0.1:8000/profile", {
+                const profileResponse = await fetch("https://chat-app-backend-axgl.onrender.com/profile", {
                     headers: { "Authorization": "Bearer " + jwtToken }
                 });
                 if (!profileResponse.ok) throw new Error("Session expired");
@@ -507,7 +507,7 @@
         // =========================================
         async function loadFriendsList() {
             try {
-                const friendsResponse = await fetch("http://127.0.0.1:8000/friends/list", {
+                const friendsResponse = await fetch("https://chat-app-backend-axgl.onrender.com/friends/list", {
                     headers: { "Authorization": "Bearer " + jwtToken }
                 });
                 const friends = await friendsResponse.json();
@@ -584,7 +584,7 @@
             if (!email) return alert("Please enter an email address.");
 
             try {
-                const res = await fetch("http://127.0.0.1:8000/friends/request", {
+                const res = await fetch("https://chat-app-backend-axgl.onrender.com/friends/request", {
                     method: "POST",
                     headers: {
                         "Authorization": "Bearer " + jwtToken,
@@ -607,7 +607,7 @@
 
         async function loadPendingRequests() {
             try {
-                const res = await fetch("http://127.0.0.1:8000/friends/requests", {
+                const res = await fetch("https://chat-app-backend-axgl.onrender.com/friends/requests", {
                     headers: { "Authorization": "Bearer " + jwtToken }
                 });
                 const requests = await res.json();
@@ -641,7 +641,7 @@
 
         async function acceptRequest(id) {
             try {
-                await fetch(`http://127.0.0.1:8000/friends/accept/${id}`, {
+                await fetch(`https://chat-app-backend-axgl.onrender.com/friends/accept/${id}`, {
                     method: "PUT",
                     headers: { "Authorization": "Bearer " + jwtToken }
                 });
@@ -653,7 +653,7 @@
         async function rejectRequest(id) {
             try {
                 if (!confirm("Reject this friend request?")) return;
-                await fetch(`http://127.0.0.1:8000/friends/reject/${id}`, {
+                await fetch(`https://chat-app-backend-axgl.onrender.com/friends/reject/${id}`, {
                     method: "DELETE",
                     headers: { "Authorization": "Bearer " + jwtToken }
                 });
@@ -665,7 +665,7 @@
         // WEBSOCKET LOGIC
         // =========================================
         function connectWebSocket() {
-            socket = new WebSocket(`ws://127.0.0.1:8000/ws?token=${encodeURIComponent(jwtToken)}`);
+            socket = new WebSocket(`wss://chat-app-backend-axgl.onrender.com/ws?token=${encodeURIComponent(jwtToken)}`);
 
             socket.onmessage = function (event) {
                 const data = JSON.parse(event.data);
@@ -718,7 +718,7 @@
         async function loadChatHistory() {
             if (!currentReceiverId) return;
             try {
-                const response = await fetch(`http://127.0.0.1:8000/messages/chat/${currentReceiverId}`, {
+                const response = await fetch(`https://chat-app-backend-axgl.onrender.com/messages/chat/${currentReceiverId}`, {
                     headers: { "Authorization": "Bearer " + jwtToken }
                 });
                 if (!response.ok) throw new Error("Failed to load history");
@@ -744,9 +744,9 @@
             if (data.message_type === "text") {
                 contentHtml = `<span class="text-content">${data.message}</span>`;
             } else if (data.message_type === "image") {
-                contentHtml = `<img src="http://127.0.0.1:8000/${data.file_path}" style="max-width: 100%; border-radius: 5px; margin-top:5px;">`;
+                contentHtml = `<img src="https://chat-app-backend-axgl.onrender.com/${data.file_path}" style="max-width: 100%; border-radius: 5px; margin-top:5px;">`;
             } else {
-                contentHtml = `<br><a href="http://127.0.0.1:8000/${data.file_path}" target="_blank" style="color: #075e54; font-weight: bold; text-decoration:none;">📄 ${data.file_name}</a>`;
+                contentHtml = `<br><a href="https://chat-app-backend-axgl.onrender.com/${data.file_path}" target="_blank" style="color: #075e54; font-weight: bold; text-decoration:none;">📄 ${data.file_name}</a>`;
             }
 
             const actionHtml = isSender ? `
@@ -802,7 +802,7 @@
             formData.append("file", fileInput.files[0]);
 
             try {
-                const response = await fetch("http://127.0.0.1:8000/messages/upload", {
+                const response = await fetch("https://chat-app-backend-axgl.onrender.com/messages/upload", {
                     method: "POST",
                     headers: { "Authorization": "Bearer " + jwtToken },
                     body: formData
@@ -819,7 +819,7 @@
         async function editMessage(id) {
             const newText = prompt("Edit message:");
             if (!newText) return;
-            await fetch(`http://127.0.0.1:8000/messages/edit/${id}`, {
+            await fetch(`https://chat-app-backend-axgl.onrender.com/messages/edit/${id}`, {
                 method: "PUT",
                 headers: { "Authorization": "Bearer " + jwtToken, "Content-Type": "application/json" },
                 body: JSON.stringify({ message: newText })
@@ -828,7 +828,7 @@
 
         async function deleteMessage(id) {
             if (!confirm("Delete message?")) return;
-            await fetch(`http://127.0.0.1:8000/messages/delete/${id}`, {
+            await fetch(`https://chat-app-backend-axgl.onrender.com/messages/delete/${id}`, {
                 method: "DELETE",
                 headers: { "Authorization": "Bearer " + jwtToken }
             });
